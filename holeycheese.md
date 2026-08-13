@@ -54,12 +54,6 @@ The per-user folder contains `update-cache.txt`. This file executes at every log
 
 In Autoruns, switch to the **Logon** tab to see the entry.
 
-**Removal:**
-
-```powershell
-Remove-Item "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup\update-cache.txt" -Force
-```
-
 ---
 
 ## Task 4 — Registry Run and RunOnce Keys
@@ -86,13 +80,6 @@ reg query HKLM\Software\Microsoft\Windows\CurrentVersion\RunOnce
 
 You will find a value named `sync-agent` under the HKCU Run key. RunOnce values are automatically deleted after execution. Sysmon Event ID 13 (RegistryValueSet) detects these modifications.
 
-**Removal:**
-
-```powershell
-Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\Run' -Name 'sync-agent'
-Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOnce' -Name 'sync-agent-once'
-```
-
 ---
 
 ## Task 5 — Scheduled Tasks and PowerShell Profile
@@ -104,32 +91,32 @@ Remove-ItemProperty -Path 'HKCU:\Software\Microsoft\Windows\CurrentVersion\RunOn
 Find the planted task:
 
 ```powershell
-Get-ScheduledTask -TaskName 'THM-Persistence-Maintenance'
+Get-ScheduledTask -TaskName 'THM-*****'
 ```
 
 Inspect the trigger type:
 
 ```powershell
-(Get-ScheduledTask -TaskName 'THM-Persistence-Maintenance').Triggers
+(Get-ScheduledTask -TaskName 'THM-*****').Triggers
 ```
 
 Output shows the trigger type is `AtLogOn`. Inspect the action (what it runs):
 
 ```powershell
-(Get-ScheduledTask -TaskName 'THM-Persistence-Maintenance').Actions
+(Get-ScheduledTask -TaskName 'THM-*****').Actions
 ```
 
 Export the full XML for detailed analysis:
 
 ```powershell
-Export-ScheduledTask -TaskName 'THM-Persistence-Maintenance'
+Export-ScheduledTask -TaskName 'THM-*****'
 ```
 
 You can also browse task XML files directly:
 
 ```powershell
 Get-ChildItem C:\Windows\System32\Tasks\ | Where-Object { $_.Name -like '*THM*' }
-Get-Content "C:\Windows\System32\Tasks\THM-Persistence-Maintenance"
+Get-Content "C:\Windows\System32\Tasks\THM-*****"
 ```
 
 ### PowerShell Profile
@@ -141,18 +128,7 @@ Test-Path $PROFILE.CurrentUserAllHosts
 Get-Content $PROFILE.CurrentUserAllHosts
 ```
 
-The profile path is typically `%USERPROFILE%\Documents\WindowsPowerShell\profile.ps1` (PS 5.1) or `%USERPROFILE%\Documents\PowerShell\profile.ps1` (PS 7+). Inside the file, look for a variable assignment containing `THM{ps_profile_persistence}` — this is the hidden flag. PowerShell profiles do **not** appear in Autoruns, making them a blind spot.
-
-**Removal:**
-
-```powershell
-Unregister-ScheduledTask -TaskName 'THM-Persistence-Maintenance' -Confirm:$false
-
-# Remove malicious line from PS profile
-$lines = Get-Content $PROFILE.CurrentUserAllHosts
-$clean = $lines | Where-Object { $_ -notmatch 'THM' }
-Set-Content $PROFILE.CurrentUserAllHosts -Value $clean
-```
+The profile path is typically `%USERPROFILE%\Documents\WindowsPowerShell\profile.ps1` (PS 5.1) or `%USERPROFILE%\Documents\PowerShell\profile.ps1` (PS 7+). Inside the file, look for a variable assignment containing `THM{******}` — this is the hidden flag. PowerShell profiles do **not** appear in Autoruns, making them a blind spot.
 
 ---
 
@@ -169,15 +145,15 @@ Get-ChildItem 'HKCU:\Software\Classes\CLSID' -Recurse
 To see just the suspicious entry and its DLL path:
 
 ```powershell
-Get-ItemProperty 'HKCU:\Software\Classes\CLSID\{THM-PERSISTENCE-COM}\InprocServer32'
+Get-ItemProperty 'HKCU:\Software\Classes\CLSID\{THM-*****}\InprocServer32'
 ```
 
-The CLSID `{THM-PERSISTENCE-COM}` is registered under HKCU. Windows checks HKCU before HKLM when resolving COM CLSIDs, so the attacker's entry shadows any legitimate system-wide one. When any application calls `CoCreateInstance()` for this CLSID, the attacker's DLL loads instead.
+The CLSID `{THM-*****}` is registered under HKCU. Windows checks HKCU before HKLM when resolving COM CLSIDs, so the attacker's entry shadows any legitimate system-wide one. When any application calls `CoCreateInstance()` for this CLSID, the attacker's DLL loads instead.
 
 **Removal:**
 
 ```powershell
-Remove-Item 'HKCU:\Software\Classes\CLSID\{THM-PERSISTENCE-COM}' -Recurse -Force
+Remove-Item 'HKCU:\Software\Classes\CLSID\{THM-****}' -Recurse -Force
 ```
 
 ---
@@ -189,30 +165,23 @@ Remove-Item 'HKCU:\Software\Classes\CLSID\{THM-PERSISTENCE-COM}' -Recurse -Force
 Check for the custom file association:
 
 ```powershell
-Get-ItemProperty 'HKCU:\Software\Classes\.thmfile'
+Get-ItemProperty 'HKCU:\Software\Classes\.***file'
 ```
 
 From cmd, you can also use:
 
 ```cmd
-assoc .thmfile
-ftype thmfile.handler
+assoc .***file
+ftype ***file.handler
 ```
 
 Inspect the handler command:
 
 ```powershell
-Get-ItemProperty 'HKCU:\Software\Classes\thmfile.handler\shell\open\command'
+Get-ItemProperty 'HKCU:\Software\Classes\***file.handler\shell\open\command'
 ```
 
-The `.thmfile` extension points to ProgID `thmfile.handler`. When any `.thmfile` is double-clicked, the custom command in `shell\open\command` executes.
-
-**Removal:**
-
-```powershell
-Remove-Item 'HKCU:\Software\Classes\.thmfile' -Recurse -Force
-Remove-Item 'HKCU:\Software\Classes\thmfile.handler' -Recurse -Force
-```
+The `.***file` extension points to ProgID `***file.handler`. When any `.***file` is double-clicked, the custom command in `shell\open\command` executes.
 
 ---
 
@@ -223,29 +192,22 @@ Remove-Item 'HKCU:\Software\Classes\thmfile.handler' -Recurse -Force
 Query the planted service:
 
 ```powershell
-Get-Service 'THM-SyncHelper'
+Get-Service 'THM-****'
 ```
 
 Get full configuration (binary path, start type, account):
 
 ```cmd
-sc.exe qc THM-SyncHelper
+sc.exe qc THM-****
 ```
 
 Or in PowerShell:
 
 ```powershell
-Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\THM-SyncHelper'
+Get-ItemProperty 'HKLM:\SYSTEM\CurrentControlSet\Services\THM-****'
 ```
 
 The service has start type `AUTO_START` (value 2), meaning it launches at every boot before any user logs in. All Windows services are defined under `HKLM\SYSTEM\CurrentControlSet\Services`.
-
-**Removal:**
-
-```powershell
-sc.exe stop 'THM-SyncHelper'
-sc.exe delete 'THM-SyncHelper'
-```
 
 ---
 
@@ -266,16 +228,8 @@ reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Userin
 reg query "HKLM\Software\Microsoft\Windows NT\CurrentVersion\Winlogon" /v Shell
 ```
 
-The default `Userinit` value is `C:\Windows\system32\userinit.exe,` — anything appended after the trailing comma is the attacker's persistence implant. `Userinit` executes **before** `explorer.exe`, making it very early in the logon chain.
+The default `Userinit` value is `C:\Windows\system32\userinit.exe,` — anything appended after the trailing comma is the attacker's persistence implant. `Userinit` executes before `explorer.exe`, making it very early in the logon chain.
 
-In Autoruns, check the **Winlogon** tab.
-
-**Removal:**
-
-```powershell
-Set-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'Userinit' -Value 'C:\Windows\system32\userinit.exe,'
-Set-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -Name 'Shell' -Value 'explorer.exe'
-```
 
 ---
 
@@ -286,13 +240,13 @@ Set-ItemProperty 'HKLM:\Software\Microsoft\Windows NT\CurrentVersion\Winlogon' -
 ### Session-Lock Scheduled Task
 
 ```powershell
-Get-ScheduledTask -TaskName 'THM-Persistence-LockWatcher'
+Get-ScheduledTask -TaskName 'THM-****'
 ```
 
 Inspect the trigger details:
 
 ```powershell
-$task = Get-ScheduledTask -TaskName 'THM-Persistence-LockWatcher'
+$task = Get-ScheduledTask -TaskName 'THM-****'
 $task.Triggers | Format-List *
 ```
 
@@ -300,25 +254,18 @@ The trigger is a `SessionStateChangeTrigger` with `StateChange = 7`, which corre
 
 ### Silent Process Exit
 
-Check IFEO and SilentProcessExit keys for `charmap.exe`:
+Check IFEO and SilentProcessExit keys for `******.exe`:
 
 ```powershell
-Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\charmap.exe'
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\*******.exe'
 ```
 
 ```cmd
-reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\charmap.exe"
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\*******.exe"
 ```
 
-The `GlobalFlag` value is set to `0x200` (FLG_MONITOR_SILENT_PROCESS_EXIT). The `MonitorProcess` value under the SilentProcessExit key specifies the command that runs when `charmap.exe` exits.
+The `GlobalFlag` value is set to `0x200` (FLG_MONITOR_SILENT_PROCESS_EXIT). The `MonitorProcess` value under the SilentProcessExit key specifies the command that runs when `*******.exe` exits.
 
-**Removal:**
-
-```powershell
-Unregister-ScheduledTask -TaskName 'THM-Persistence-LockWatcher' -Confirm:$false
-Remove-Item 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\SilentProcessExit\charmap.exe' -Recurse -Force
-Remove-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\charmap.exe' -Name 'GlobalFlag'
-```
 
 ---
 
@@ -341,16 +288,6 @@ Get-WmiObject -Namespace root\subscription -Class __FilterToConsumerBinding
 
 The filter is named `WmiSync`, the consumer is `WmiSyncConsumer`. WMI subscriptions are stored in the WMI repository (`C:\Windows\System32\wbem\Repository\`), not the registry — registry-only scanners won't find them. Sysmon Event IDs 19/20/21 detect WMI subscription creation.
 
-**Removal:**
-
-```powershell
-$ns = 'root\subscription'
-Get-WmiObject -Namespace $ns -Class __FilterToConsumerBinding | Where-Object {
-    $_.Filter -like '*WmiSync*'
-} | Remove-WmiObject
-Get-WmiObject -Namespace $ns -Class CommandLineEventConsumer -Filter "Name='WmiSyncConsumer'" | Remove-WmiObject
-Get-WmiObject -Namespace $ns -Class __EventFilter -Filter "Name='WmiSync'" | Remove-WmiObject
-```
 
 ---
 
@@ -361,24 +298,19 @@ Get-WmiObject -Namespace $ns -Class __EventFilter -Filter "Name='WmiSync'" | Rem
 Check the IFEO key for `calc.exe`:
 
 ```powershell
-Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\calc.exe'
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\****.exe'
 ```
 
 Or:
 
 ```cmd
-reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\calc.exe"
+reg query "HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\****.exe"
 ```
 
-The `Debugger` value is set to `cmd.exe`. When you try to launch Calculator, Windows launches the debugger instead — `cmd.exe` starts, Calculator never does. In Autoruns, this appears under the **Image Hijacks** tab.
+The Debugger value is set to `***.exe`. When you try to launch Calculator, Windows launches the debugger instead — `***.exe` starts, Calculator never does. In Autoruns, this appears under the Image Hijacks tab.
 
 A devastating real-world variant targets pre-authentication accessibility tools like `utilman.exe` (Win+U on the lock screen), `sethc.exe` (Sticky Keys), or `osk.exe` (On-Screen Keyboard). Hijacking these gives a SYSTEM shell on the lock screen without any credentials.
 
-**Removal:**
-
-```powershell
-Remove-Item 'HKLM:\SOFTWARE\Microsoft\Windows NT\CurrentVersion\Image File Execution Options\calc.exe' -Recurse -Force
-```
 
 ---
 
@@ -397,16 +329,11 @@ Get-ChildItem 'HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components' |
 To find the specific planted entry:
 
 ```powershell
-Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{THM-ACTIVE-SETUP}'
+Get-ItemProperty 'HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{THM-****}'
 ```
 
-The GUID `{THM-ACTIVE-SETUP}` has a `StubPath` value pointing to the payload. Active Setup runs the StubPath once per user at first logon. Incrementing the `Version` value forces re-execution for all users.
+The GUID `{THM-****}` has a `StubPath` value pointing to the payload. Active Setup runs the StubPath once per user at first logon. Incrementing the `Version` value forces re-execution for all users.
 
-**Removal:**
-
-```powershell
-Remove-Item 'HKLM:\SOFTWARE\Microsoft\Active Setup\Installed Components\{THM-ACTIVE-SETUP}' -Recurse -Force
-```
 
 ---
 
@@ -465,12 +392,12 @@ foreach ($pkg in ($packages | Where-Object { $_ -ne '' })) {
 }
 ```
 
-The output reveals `THMNotificationPackage` as a non-default entry. Verify the DLL on disk:
+The output reveals `THM******` as a non-default entry. Verify the DLL on disk:
 
 ```powershell
-Test-Path "C:\Windows\System32\THMNotificationPackage.dll"
-Get-Item "C:\Windows\System32\THMNotificationPackage.dll" | Select-Object Name, Length, LastWriteTime
-Get-AuthenticodeSignature "C:\Windows\System32\THMNotificationPackage.dll"
+Test-Path "C:\Windows\System32\THM******.dll"
+Get-Item "C:\Windows\System32\THM******.dll" | Select-Object Name, Length, LastWriteTime
+Get-AuthenticodeSignature "C:\Windows\System32\THM******.dll"
 ```
 
 The DLL must be placed in `C:\Windows\System32` for LSASS to load it. Sysmon Event ID 7 (ImageLoaded) detects modules being loaded into processes.
@@ -485,17 +412,6 @@ List all modules currently loaded in LSASS:
 
 ```powershell
 Get-Process lsass | Select-Object -ExpandProperty Modules | Select-Object FileName
-```
-
-**Removal:**
-
-```powershell
-$lsaPath = 'HKLM:\SYSTEM\CurrentControlSet\Control\Lsa'
-$current = (Get-ItemProperty $lsaPath -Name 'Notification Packages').'Notification Packages'
-$cleaned = @($current | Where-Object { $_ -ne 'THMNotificationPackage' -and $_ -ne '' })
-Set-ItemProperty $lsaPath -Name 'Notification Packages' -Value $cleaned -Type MultiString
-Remove-Item 'C:\Windows\System32\THMNotificationPackage.dll' -Force -ErrorAction SilentlyContinue
-# Reboot required to fully unload from LSASS
 ```
 
 ---
@@ -516,7 +432,7 @@ Count the captured entries:
 (Get-Content "C:\THM-Persistence-Lab\lsa\captured-credentials.log" | Where-Object { $_ -match 'PasswordChange' }).Count
 ```
 
-The log contains 3 captured credential entries. The Password Filter API function `PasswordFilter()` receives the plaintext new password before a change is applied. If it returns `TRUE`, the password is accepted regardless of policy.
+The log contains captured credential entries. The Password Filter API function `PasswordFilter()` receives the plaintext new password before a change is applied. If it returns true, the password is accepted regardless of policy.
 
 Check whether WDigest plaintext credential caching is enabled:
 
