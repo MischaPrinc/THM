@@ -1,6 +1,6 @@
-# Write-Up: Windows Persistence Techniques — TryHackMe
+# Write-Up: TryHackMe - Holey cheese
 
-**Room:** Windows Persistence Techniques  
+**Room:** Holey cheese  
 **Difficulty:** Medium  
 
 ---
